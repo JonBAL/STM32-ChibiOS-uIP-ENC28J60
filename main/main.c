@@ -10,33 +10,9 @@
 
 #include "evtimer.h"
 
-// uip-conf.h #define UIP_CONF_BUFFER_SIZE     1518
-
 // Указатель на поток
 Thread *tp = NULL;
 Thread *tp2 = NULL;
-
-// Буферы
-//static uint8_t rxbuf[8];
-//static uint8_t txbuf[8];
-
-// Виртуальные таймеры
-//static VirtualTimer vt1;
-
-//static void rxend(UARTDriver *uartp);
-//	
-//// Структура конфигурации UART-драйвера
-//static UARTConfig uart_cfg_1 = {
-//  NULL,
-//  NULL,
-//  rxend,
-//  NULL,
-//  NULL,
-//  9600,
-//  0,
-//  USART_CR2_LINEN,
-//  0
-//};
 
 // Структура связи с ENC60J28
 struct enc encST = {
@@ -57,63 +33,6 @@ struct enc encST = {
 static const struct uip_eth_addr macaddr = {
 	{ETHADDR0, ETHADDR1, ETHADDR2, ETHADDR3, ETHADDR4, ETHADDR5}
 };
-
-//static WORKING_AREA(wa_spi_thread, 256);
-//static msg_t spi_thread(void *p)
-//{
-//	//uip_ipaddr_t ip = {0 , 0};
-//	chRegSetThreadName("SPI thread");
-//  while (1)
-//	{
-//		// Перевести поток в состояние сна (приостановка выполнения потока)
-//		chSysLock();
-//			tp = chThdSelf();
-//			chSchGoSleepS(THD_STATE_SUSPENDED);
-//		chSysUnlock();
-
-//		palTogglePad(GPIOB, GPIOB_PIN4);
-
-//		//txbuf[0] = enc_register_read(&encST, ESTAT);
-//		//enc_register_write(&encST, ECON1, 0x01);
-//		//txbuf[1] = enc_register_read(&encST, ECON1);
-//		//enc_register_write(&encST, ECON1, 0x05);
-//		//txbuf[2] = enc_register_read(&encST, ECON2);
-//		
-////		chSysLock();
-////			enc_init(&encST);
-////			uip_init();
-////			uip_setethaddr(macaddr);
-////			//-----------------------
-////			uip_ipaddr(ip, 192,168,1,111);
-////			uip_sethostaddr(ip);
-////			uip_ipaddr(ip, 192,168,1,100);
-////			uip_setdraddr(ip);
-////			uip_ipaddr(ip, 255,255,255,0);
-////			uip_setnetmask(ip);
-////			//-----------------------
-////			uip_listen(HTONS(80));
-////		chSysUnlock();
-
-//		// Отправка заполненного буфера обратно
-//		uartStartSendI(&UARTD1, 3, &txbuf);
-//		
-//		// Разрешение приёма (если не разрешить, rxend перестанет вызываться и начнёт работать rxchar)
-//		uartStartReceiveI(&UARTD1, 1, &rxbuf);
-//  }
-//}
-
-//// Эта функция вызывается когда буфер приёмника заполнен
-//static void rxend(UARTDriver *uartp)
-//{
-//	Thread *ntp = tp;
-//	chSysLock();
-//		if (ntp)
-//		{ 
-//			tp = NULL;
-//			chSchWakeupS(ntp, RDY_OK);
-//		}
-//	chSysUnlock(); 
-//}
 
 static EVENTSOURCE_DECL(enc_int_es);
 
@@ -149,7 +68,7 @@ static const EXTConfig extcfg = {
 };
 
 #define EVID_NET_INT			0
-#define EVID_NET_PERIODIC	1
+#define EVID_NET_PERIODIC		1
 #define EVID_NET_ARP			2
 
 static void network_send()
@@ -166,7 +85,6 @@ static void network_send()
 static WORKING_AREA(network_wa, 512);
 static msg_t network_thread(void *arg)
 {
-	//uip_ipaddr_t ip;
 	uip_ipaddr_t ip = {0 , 0};
 	EvTimer per_evt;
 	EvTimer arp_evt;
@@ -199,11 +117,11 @@ static msg_t network_thread(void *arg)
 	//uip_sethostaddr(ip);
 	//-----------------------
 	uip_ipaddr(ip, 192,168,1,111);
-  uip_sethostaddr(ip);
-  uip_ipaddr(ip, 192,168,1,100);
-  uip_setdraddr(ip);
-  uip_ipaddr(ip, 255,255,255,0);
-  uip_setnetmask(ip);
+	uip_sethostaddr(ip);
+	uip_ipaddr(ip, 192,168,1,100);
+	uip_setdraddr(ip);
+	uip_ipaddr(ip, 255,255,255,0);
+	uip_setnetmask(ip);
 	//-----------------------
 	uip_listen(HTONS(80));
 	
@@ -225,7 +143,6 @@ static msg_t network_thread(void *arg)
 			chSysUnlock();
 		}
 		
-		//chSysLock();
 		if (event == EVENT_MASK(EVID_NET_INT))
 		{
 			/* The interrupt line is low for as long as we have packets pending */
@@ -281,7 +198,6 @@ static msg_t network_thread(void *arg)
 		{
 			uip_arp_timer();
 		}
-		//chSysUnlock();
 		
 		count++;
 		if (count == 10)
@@ -291,17 +207,6 @@ static msg_t network_thread(void *arg)
 			palTogglePad(GPIOB, GPIOB_PIN2);
 			chSysUnlock();
 		}
-		
-//		if ((encST.driver->state) == 1)
-//		{
-//			palSetPad(GPIOB, GPIOB_PIN5);
-//			palSetPad(GPIOB, GPIOB_PIN4);
-//		}
-//		else
-//		{
-//			palClearPad(GPIOB, GPIOB_PIN5);
-//			palClearPad(GPIOB, GPIOB_PIN4);
-//		}
 	}
 }
 // -----------------------------------------------------------
@@ -322,11 +227,6 @@ static msg_t ThreadBlink(void *arg)
 				spiStop(&SPID1);
 				spiStart(&SPID1, &encST.config);
 				enc_init(&encST);
-//			chThdWait(tp2);
-//			chThdTerminate (tp2);
-//			//chThdSleepMilliseconds(100);
-//			
-//			chThdCreateStatic(network_wa, sizeof(network_wa), NORMALPRIO, network_thread, NULL);
 		}
 		chSysUnlock();
 		
@@ -344,26 +244,12 @@ int main(void)
 
 	chEvtInit(&enc_int_es);
 	extStart(&EXTD1, &extcfg);
-	
-//	uartStart(&UARTD1, &uart_cfg_1);
-//  uartStartSend(&UARTD1, 13, "Starting...\r\n");
-	
-//	// Создание потока связи с SPI
-//	chThdCreateStatic(wa_spi_thread, sizeof(wa_spi_thread), NORMALPRIO, spi_thread, NULL);
-	// Создание потока для сети
-	chThdCreateStatic(network_wa, sizeof(network_wa), NORMALPRIO, network_thread, NULL);
-	// Создание потока мигалки
-	chThdCreateStatic(waThreadBlink, sizeof(waThreadBlink), NORMALPRIO, ThreadBlink, NULL);
-	//
-	//chThdCreateStatic(wa_enc_reset_thread, sizeof(wa_enc_reset_thread), NORMALPRIO, enc_reset_thread, NULL);
-	
-//	// Разрешение приёма по UART2
-//	uartStartReceive(&UARTD1, 1, &rxbuf);
 
-	//chThdExit(0);
-	
+	chThdCreateStatic(network_wa, sizeof(network_wa), NORMALPRIO, network_thread, NULL);
+	chThdCreateStatic(waThreadBlink, sizeof(waThreadBlink), NORMALPRIO, ThreadBlink, NULL);
+
 	while (1)
 	{
 		chThdSleepMilliseconds(500);
-  }
+	}
 }
