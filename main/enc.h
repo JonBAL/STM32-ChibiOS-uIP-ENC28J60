@@ -286,8 +286,8 @@ struct enc {
 
 void enc_reset(struct enc *enc);
 
-void enc_register_write(struct enc *enc, uint8_t addr, uint8_t val);
-uint8_t enc_register_read(struct enc *enc, uint8_t addr);
+//void enc_register_write(struct enc *enc, uint8_t addr, uint8_t val);
+//uint8_t enc_register_read(struct enc *enc, uint8_t addr);
 
 void enc_packet_send(struct enc *enc, uint16_t hlen, uint8_t *hd, uint16_t len, uint8_t *data);
 uint16_t enc_packet_receive(struct enc *enc, uint16_t len, uint8_t *data);

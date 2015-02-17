@@ -1,23 +1,3 @@
-/*
- *  Copyright (C) Josef Gajdusek <atx@atx.name>
- *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>
- *
- *  Loosely based on the ENC28J60 driver by Pascal Stang from the
- *  avr-uip library
- */
-
 #include "hal.h"
 #include "enc.h"
 
@@ -108,13 +88,13 @@ static void enc_set_bank(struct enc *enc, uint8_t bank)
 	enc->bank = bank;
 }
 
-void enc_register_write(struct enc *enc, uint8_t addr, uint8_t val)
-{
+static void enc_register_write(struct enc *enc, uint8_t addr, uint8_t val)
+{ // была static
 	enc_set_bank(enc, addr);
 	enc_write(enc, 2, INST_CONTROL_WRITE | (ADDR_MASK & addr), val);
 }
 
-uint8_t enc_register_read(struct enc *enc, uint8_t addr)
+static uint8_t enc_register_read(struct enc *enc, uint8_t addr)
 {	// была static
 	uint8_t ret[2] = { 0, 0 };
 	bool dummy = NEEDS_DUMMY(addr);
@@ -226,7 +206,7 @@ void enc_drop_packets(struct enc *enc)
 void enc_init(struct enc *enc)
 {
 	enc_reset(enc);
-	chThdSleepMilliseconds(100); //100
+	//chThdSleepMilliseconds(100); //100
 
 	enc->ptr = RXSTART_INIT;
 	/* RX buffer start */
