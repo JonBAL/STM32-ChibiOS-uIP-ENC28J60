@@ -49,7 +49,7 @@
 #define GPIOA_PIN12					12
 #define GPIOA_SWDIO					13
 #define GPIOA_SWCLK					14
-#define GPIOA_HEAT_TOP			15
+#define GPIOA_PIN15					15
 
 #define GPIOB_PIN0					0
 #define GPIOB_PIN1					1

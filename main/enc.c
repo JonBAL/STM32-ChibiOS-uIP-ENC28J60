@@ -1,52 +1,34 @@
 #include "hal.h"
 #include "enc.h"
-
-//uint8_t BANK(uint8_t x)
-//{
-//	uint8_t b = (x) << 5;
-//	return b;
-//}
-
-//uint8_t BANK_NUM(uint8_t x)
-//{
-//	uint8_t b = ((x) >> 5) & 3;
-//	return b;
-//}
-
-//#define enc_spi_start(enc) \
-//	do { \
-//		spiStart((enc)->driver, &enc->config); \
-//		spiSelect((enc)->driver); \
-//	} while(0)
-
-//#define enc_spi_stop(enc) \
-//	do { \
-//		spiUnselect((enc)->driver); \
-//		spiStop((enc)->driver); \
-//	} while(0)
 	
 #define enc_spi_start(enc) spiSelect((enc)->driver);
-
 #define enc_spi_stop(enc) spiUnselect((enc)->driver);
 
 void enc_reset(struct enc *enc)
 {
 	uint8_t d = INST_RESET;
+	
+	// Reset ENC-chip
+	chSysLock();
+	palClearPad(GPIOA, GPIOA_ENC_RST);
+	//chThdSleepMilliseconds(1);
+	chThdSleepMicroseconds(100);
+	palSetPad(GPIOA, GPIOA_ENC_RST);
+	chSysUnlock();
 
-	//chSysLock();
-		enc_spi_start(enc);
-		spiSend(enc->driver, 1, &d);
-		enc_spi_stop(enc);
-	//chSysUnlock();
+	enc_spi_start(enc);
+	spiSend(enc->driver, 1, &d);
+	enc_spi_stop(enc);
+	
+	// For fix ERRATA: 2. Module: Reset
+	chThdSleepMilliseconds(1);
 }
 
 static void enc_write_data(struct enc *enc, int n, uint8_t *data)
 {
-	//chSysLock();
-		enc_spi_start(enc);
-		spiSend(enc->driver, n, data);
-		enc_spi_stop(enc);
-	//chSysUnlock();
+	enc_spi_start(enc);
+	spiSend(enc->driver, n, data);
+	enc_spi_stop(enc);
 }
 
 void enc_write(struct enc *e, int n, uint8_t mask1, uint8_t mask2)
@@ -59,20 +41,18 @@ void enc_write(struct enc *e, int n, uint8_t mask1, uint8_t mask2)
 	
 static void enc_read(struct enc *enc, uint8_t inst, int n, uint8_t *ret)
 {
-	//chSysLock();
-		enc_spi_start(enc);
-		spiSend(enc->driver, 1, &inst);
-		spiReceive(enc->driver, n, ret);
-		enc_spi_stop(enc);
-	//chSysUnlock();
+	enc_spi_start(enc);
+	spiSend(enc->driver, 1, &inst);
+	spiReceive(enc->driver, n, ret);
+	enc_spi_stop(enc);
 }
 
-static void enc_bit_set(struct enc *enc, uint8_t addr, uint8_t mask)
+void enc_bit_set(struct enc *enc, uint8_t addr, uint8_t mask)
 {
 	enc_write(enc, 2, INST_BIT_SET | (ADDR_MASK & addr), mask);
 }
 
-static void enc_bit_clr(struct enc *enc, uint8_t addr, uint8_t mask)
+void enc_bit_clr(struct enc *enc, uint8_t addr, uint8_t mask)
 {
 	enc_write(enc, 2, INST_BIT_CLEAR | (ADDR_MASK & addr), mask);
 }
@@ -82,24 +62,26 @@ static void enc_set_bank(struct enc *enc, uint8_t bank)
 	bank = BANK_NUM(bank);
 	
 	if (enc->bank == bank) return;
-
+	
 	enc_bit_clr(enc, ECON1, ECON1_BSEL0 | ECON1_BSEL1);
 	enc_bit_set(enc, ECON1, bank);
 	enc->bank = bank;
 }
 
 static void enc_register_write(struct enc *enc, uint8_t addr, uint8_t val)
-{ // была static
+{ // was static
 	enc_set_bank(enc, addr);
 	enc_write(enc, 2, INST_CONTROL_WRITE | (ADDR_MASK & addr), val);
 }
 
 static uint8_t enc_register_read(struct enc *enc, uint8_t addr)
-{	// была static
+{	// was static
 	uint8_t ret[2] = { 0, 0 };
 	bool dummy = NEEDS_DUMMY(addr);
+	
 	enc_set_bank(enc, addr);
 	enc_read(enc, INST_CONTROL_READ | (ADDR_MASK & addr), dummy ? 2 : 1, ret);
+	
 	return ret[dummy ? 1 : 0];
 }
 
@@ -107,12 +89,10 @@ static void enc_buffer_write(struct enc *enc, int len, uint8_t *data)
 {
 	uint8_t inst[1] = {INST_BUFFER_WRITE};
 	
-	//chSysLock();
-		enc_spi_start(enc);
-		spiSend(enc->driver, 1, inst);
-		spiSend(enc->driver, len, data);
-		enc_spi_stop(enc);
-	//chSysUnlock();
+	enc_spi_start(enc);
+	spiSend(enc->driver, 1, inst);
+	spiSend(enc->driver, len, data);
+	enc_spi_stop(enc);
 }
 
 #define enc_buffer_read(e, l, d) enc_read(e, INST_BUFFER_READ, l, d);
@@ -122,6 +102,7 @@ static void enc_phy_write(struct enc *enc, uint8_t addr, uint16_t data)
 	enc_register_write(enc, MIREGADR, addr);
 	enc_register_write(enc, MIWRL, data);
 	enc_register_write(enc, MIWRH, data >> 8);
+
 	while(enc_register_read(enc, MISTAT) & MISTAT_BUSY)
 		chThdSleepMicroseconds(20);
 }
@@ -136,9 +117,29 @@ uint8_t enc_int_flags(struct enc *enc)
 	return enc_register_read(enc, EIR);
 }
 
+// For debug
+uint8_t enc_read_REG(struct enc *enc, uint8_t reg)
+{
+	return enc_register_read(enc, reg);
+}
+
 void enc_packet_send(struct enc *enc, uint16_t len1, uint8_t *data1, uint16_t len2, uint8_t *data2)
 {
 	uint8_t data[] = {0};
+	uint16_t i = 0xFFFF;
+	
+	while(enc_register_read(enc, ECON1) & ECON1_TXRTS)
+	{
+//		if(enc_register_read(enc, EIR) & EIR_TXERIF)
+//		{
+//			enc_bit_set(enc, ECON1, ECON1_TXRST);
+//			enc_bit_clr(enc, ECON1, ECON1_TXRST);
+//			break;
+//		}
+		
+		i--;
+		if (i == 0) break; 
+	}
 	
 	enc_bit_set(enc, ECON1, ECON1_TXRST);
 	enc_bit_clr(enc, ECON1, ECON1_TXRST);
@@ -164,6 +165,7 @@ uint16_t enc_packet_receive(struct enc *enc, uint16_t maxlen, uint8_t *data)
 	uint16_t stat;
 	uint16_t len;
 
+	// If Ethernet Packet Count = 0, exit
 	if (enc_register_read(enc, EPKTCNT) == 0)	return 0;
 
 	/* Set the read pointer */
@@ -175,6 +177,7 @@ uint16_t enc_packet_receive(struct enc *enc, uint16_t maxlen, uint8_t *data)
 
 	/* Read packet length */
 	enc_buffer_read(enc, 2, (uint8_t *) &len);
+	// Cut CRC
 	len -= 4;
 
 	/* Read the rest of the status bits */
@@ -184,7 +187,7 @@ uint16_t enc_packet_receive(struct enc *enc, uint16_t maxlen, uint8_t *data)
 
 	enc_buffer_read(enc, len, data);
 
-	enc_register_write(enc, ERXRDPTL, enc->ptr & 0xff);
+	enc_register_write(enc, ERXRDPTL, (enc->ptr - 1) & 0xff);
 	enc_register_write(enc, ERXRDPTH, enc->ptr >> 8);
 
 	/* Decrement the EPKTCNT */
@@ -197,6 +200,7 @@ void enc_drop_packets(struct enc *enc)
 {
 	/* Set the pointer to the start of the buffer */
 	enc->ptr = RXSTART_INIT;
+	
 	enc_register_write(enc, ERXRDPTL, RXSTART_INIT & 0xff);
 	enc_register_write(enc, ERXRDPTH, RXSTART_INIT >> 8);
 	/* Set the packet counter to 0 */
@@ -207,7 +211,7 @@ void enc_init(struct enc *enc)
 {
 	enc_reset(enc);
 	//chThdSleepMilliseconds(100); //100
-
+	
 	enc->ptr = RXSTART_INIT;
 	/* RX buffer start */
 	enc_register_write(enc, ERXSTL, RXSTART_INIT & 0xff);
@@ -217,7 +221,7 @@ void enc_init(struct enc *enc)
 	enc_register_write(enc, ERXRDPTH, RXSTART_INIT >> 8);
 	/* RX buffer end */
 	enc_register_write(enc, ERXNDL, RXSTOP_INIT & 0xff);
-	enc_register_write(enc, ERXNDL, RXSTOP_INIT >> 8);
+	enc_register_write(enc, ERXNDH, RXSTOP_INIT >> 8);
 
 	/* TX buffer start */
 	enc_register_write(enc, ETXSTL, TXSTART_INIT & 0xff);

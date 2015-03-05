@@ -376,7 +376,7 @@
  * \hideinitializer
  */
 #ifndef UIP_CONF_BUFFER_SIZE
-#define UIP_BUFSIZE     400
+#define UIP_BUFSIZE     1500
 #else /* UIP_CONF_BUFFER_SIZE */
 #define UIP_BUFSIZE UIP_CONF_BUFFER_SIZE
 #endif /* UIP_CONF_BUFFER_SIZE */

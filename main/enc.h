@@ -1,20 +1,3 @@
-/*
- *  Copyright (C) Josef Gajdusek <atx@atx.name>
- *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>
- */
-
 #ifndef __ENC_H__
 #define __ENC_H__
 
@@ -180,6 +163,7 @@
 
 /* ESTAT bits */
 #define ESTAT_INT				0x80
+#define ESTAT_BUFER			0x40
 #define ESTAT_LATECOL		0x10
 #define ESTAT_RXBUSY		0x04
 #define ESTAT_TXABRT		0x02
@@ -272,7 +256,7 @@
 
 #define SRAM_END			0x1fff
 #define RXSTART_INIT		0
-#define RXSTOP_INIT			(SRAM_END - 1500)
+#define RXSTOP_INIT			(SRAM_END - 1520)
 #define TXSTART_INIT		(RXSTOP_INIT + 1)
 #define TXSTOP_INIT			SRAM_END
 
@@ -288,10 +272,13 @@ void enc_reset(struct enc *enc);
 
 //void enc_register_write(struct enc *enc, uint8_t addr, uint8_t val);
 //uint8_t enc_register_read(struct enc *enc, uint8_t addr);
+void enc_bit_set(struct enc *enc, uint8_t addr, uint8_t mask);
+void enc_bit_clr(struct enc *enc, uint8_t addr, uint8_t mask);
 
 void enc_packet_send(struct enc *enc, uint16_t hlen, uint8_t *hd, uint16_t len, uint8_t *data);
 uint16_t enc_packet_receive(struct enc *enc, uint16_t len, uint8_t *data);
 uint8_t enc_int_flags(struct enc *enc);
+uint8_t enc_read_REG(struct enc *enc, uint8_t reg);
 void enc_drop_packets(struct enc *enc);
 void enc_int_clear(struct enc *enc, uint8_t mask);
 void enc_init(struct enc *enc);
